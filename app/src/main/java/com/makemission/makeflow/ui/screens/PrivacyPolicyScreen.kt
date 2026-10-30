@@ -55,7 +55,7 @@ private val privacyPolicySections = listOf(
     ),
     PrivacyPolicySection(
         "Permissions and imports",
-        "Optional weekly finance reminders use Android notifications and can be turned off in Settings. Biometric authentication can protect app access, and vibration is used for touch feedback. The Google Play build does not request SMS access. The separately labeled Community build can optionally detect new M-PESA messages after you grant SMS permission; it filters to the M-PESA sender and requires review before saving. Share and paste import are also available."
+        "Optional weekly finance reminders use Android notifications and can be turned off in Settings. Biometric authentication can protect app access, and vibration is used for touch feedback. The Google Play build does not request SMS access. The separately labeled Community build can optionally process new M-PESA SMS events after you grant permission. It checks for the M-PESA sender and a valid confirmation, does not read inbox history, and does not save or send the original message off this device. Matching transactions go to review by default. A separate background-logging opt-in can save eligible transactions automatically to one clear KES M-PESA account; ambiguous cases still go to review. Share and paste import are also available."
     ),
     PrivacyPolicySection(
         "Backups and deleting data",
@@ -63,7 +63,7 @@ private val privacyPolicySections = listOf(
     ),
     PrivacyPolicySection(
         "Contact and updates",
-        "Mindful Wallet does not include advertising or analytics SDKs. This policy was last updated on 9 October 2026 for app version ${BuildConfig.VERSION_NAME}. For privacy questions, contact the developer using the email shown on the Mindful Wallet Google Play listing."
+        "Mindful Wallet does not include advertising or analytics SDKs. This policy was last updated on 30 October 2026 for app version ${BuildConfig.VERSION_NAME}. For privacy questions, contact the developer using the email shown on the Mindful Wallet Google Play listing."
     )
 )
 

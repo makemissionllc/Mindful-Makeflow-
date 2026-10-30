@@ -220,6 +220,7 @@ fun HomeDashboard(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = horizontalPadding)
+                .padding(bottom = if (isCompact) PrimaryDockContentInset() else 0.dp)
                 .verticalFadingEdge(
                     topFadeHeight = config.fadingEdgeHeight,
                     bottomFadeHeight = config.fadingEdgeHeight
@@ -228,7 +229,7 @@ fun HomeDashboard(
             contentPadding = PaddingValues(
                 top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() +
                     if (isCompact) dimens.paddingLarge else config.barHeight,
-                bottom = PrimaryDockContentInset()
+                bottom = if (isCompact) dimens.paddingLarge else PrimaryDockContentInset()
             )
         ) {
             item {

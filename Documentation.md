@@ -6,6 +6,23 @@ plus verification status.
 
 Conventions: `path:line` for code refs, commit hashes where available.
 
+## 2026-10-30 — Refine phone layout and validate M-PESA logging
+
+- **Home layout:** reserved the compact dashboard's bottom navigation/action dock in the
+  scroll viewport so it no longer covers values in a partially visible cash-flow card.
+- **Privacy wording:** clarified that Community SMS detection reads only new matching
+  M-PESA confirmations, keeps the original message on-device, and sends transactions to
+  review by default. Background logging is a separate opt-in for eligible transactions
+  when exactly one KES M-PESA account can be identified; ambiguous cases remain in review.
+- **On-device verification:** installed an isolated `.community.codextest` build on the
+  OPPO CPH2745 (Android 16). Unit tests and all 107 instrumented tests passed with no test
+  failures. Gradle could not collect logcat for one completed test. Visually reviewed the
+  Settings toggles and both M-PESA disclosures; background logging remained off. The Home
+  cash-flow amounts stayed readable above the dock after scrolling. Temporary SMS and
+  notification permissions were granted only to the test package, then removed with it.
+  No real SMS was injected and no transaction was saved; the installed Community package
+  was left untouched. `git diff --check` passed.
+
 ## 2026-10-30 — Add optional M-PESA background logging and balance checks
 
 - **Background import:** added a separate DataStore opt-in for saving recognized M-PESA
