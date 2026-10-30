@@ -110,6 +110,7 @@ import com.makemission.makeflow.domain.CategorySuggestion
 import com.makemission.makeflow.domain.AccountSuggester
 import com.makemission.makeflow.domain.DuplicateCheckResult
 import com.makemission.makeflow.domain.TransactionCommitHandler
+import com.makemission.makeflow.domain.MpesaBalanceCheck
 import com.makemission.makeflow.domain.TransactionExitGuard
 import com.makemission.makeflow.domain.TransactionDraft
 import com.makemission.makeflow.domain.CurrencyConverter
@@ -165,6 +166,7 @@ fun AddTransactionScreen(
     editTransaction: TransactionEntity? = null,
     onUpdate: (suspend (TransactionEntity) -> Unit)? = null,
     mpesaTransactionCost: Double? = null,
+    mpesaBalanceCheck: MpesaBalanceCheck? = null,
     mpesaAiAssisted: Boolean = false,
     logMpesaCosts: Boolean = true,
     onLoadDraft: suspend () -> TransactionDraft? = { null },
@@ -1552,6 +1554,19 @@ fun AddTransactionScreen(
                         fontWeight = FontWeight.Medium
                     )
                 }
+            }
+
+            mpesaBalanceCheck?.let { check ->
+                Spacer(modifier = Modifier.height(dimens.spacingSmall))
+                Text(
+                    text = if (check.matches) {
+                        "Balance check matches: ${CurrencyFormatter.format(check.statementBalance, currencyCode)} after this transaction."
+                    } else {
+                        "At the detected amount, the app expects ${CurrencyFormatter.format(check.expectedBalance, currencyCode)} but the SMS reports ${CurrencyFormatter.format(check.statementBalance, currencyCode)} (${CurrencyFormatter.format(kotlin.math.abs(check.difference), currencyCode)} difference). Check for missing transactions or an outdated opening balance."
+                    },
+                    color = if (check.matches) LocalMakeFlowColors.current.colorSuccess else MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
 
             // === Save as Template link ===

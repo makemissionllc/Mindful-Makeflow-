@@ -89,6 +89,7 @@ import com.makemission.makeflow.core.device.LocalReducedMotion
 import com.makemission.makeflow.core.haptics.HapticEvent
 import com.makemission.makeflow.core.haptics.rememberHapticManager
 import com.makemission.makeflow.core.logging.AppLogger
+import com.makemission.makeflow.core.format.CurrencyFormatter
 import com.makemission.makeflow.ui.util.sharePdfStatement
 import com.makemission.makeflow.core.ml.CategoryClassifier
 import com.makemission.makeflow.core.ml.RetrainableCategoryClassifier
@@ -116,6 +117,8 @@ import com.makemission.makeflow.data.repository.ExchangeRateRepositoryImpl
 import com.makemission.makeflow.data.repository.ExchangeRateSyncer
 import com.makemission.makeflow.data.repository.TransactionTemplateRepositoryImpl
 import com.makemission.makeflow.domain.MpesaMessageParser
+import com.makemission.makeflow.domain.MpesaBalanceCheck
+import com.makemission.makeflow.domain.MpesaBalanceReconciler
 import com.makemission.makeflow.ui.screens.AccountsScreen
 import com.makemission.makeflow.ui.screens.AddEditAccountBottomSheet
 import com.makemission.makeflow.ui.screens.AddEditRecurringTransactionBottomSheet
@@ -329,6 +332,7 @@ fun MainScreen(
     var mpesaInitialTransferFromId by remember { mutableStateOf<String?>(null) }
     var mpesaInitialTransferToId by remember { mutableStateOf<String?>(null) }
     var mpesaTransactionCost by remember { mutableStateOf<Double?>(null) }
+    var mpesaBalanceCheck by remember { mutableStateOf<MpesaBalanceCheck?>(null) }
     var mpesaAiAssisted by remember { mutableStateOf(false) }
     var pendingMpesaImport by remember { mutableStateOf<MpesaMessageParser.MpesaParsedMessage?>(null) }
     val mpesaImportRequestId = remember { mutableIntStateOf(0) }
@@ -350,21 +354,19 @@ fun MainScreen(
                 mpesaDuplicateMessage = "This M-PESA transaction has already been logged"
                 return@LaunchedEffect
             }
-            val isFeeDuplicate = repository.hasExternalReference("${data.code}-fee")
-            if (isFeeDuplicate) {
-                mpesaDuplicateMessage = "This M-PESA transaction fee has already been logged"
-                return@LaunchedEffect
-            }
         }
+        val isFeeDuplicate = data.code.isNotEmpty() && logMpesaCosts &&
+            repository.hasExternalReference("${data.code}-fee")
 
         val normalizedName = MpesaMessageParser.normalizeWhitespace(data.counterpartyName)
         val isZiidi = normalizedName.equals("ZIIDI", ignoreCase = true)
 
-        val mpesaAccountId = withContext(Dispatchers.IO) {
+        val mpesaAccount = withContext(Dispatchers.IO) {
             db.accountDao().getAllAccountsOnce().firstOrNull { a ->
                 a.name.contains("mpesa", ignoreCase = true)
-            }?.id
+            }
         }
+        val mpesaAccountId = mpesaAccount?.id
 
         if (isZiidi) {
             val ziidiAccountId = withContext(Dispatchers.IO) {
@@ -409,7 +411,30 @@ fun MainScreen(
             fmt.parse("$normalizedDate ${data.time}")?.time
         } catch (_: Exception) { null }
         mpesaExternalReference = data.code
-        mpesaTransactionCost = data.transactionCost
+        mpesaTransactionCost = data.transactionCost.takeUnless { isFeeDuplicate }
+        val accountBalanceBeforeMessage = mpesaAccount?.takeIf {
+            (it.currencyCode ?: currencyCode).equals("KES", ignoreCase = true)
+        }?.let { account ->
+            mpesaInitialTimestamp?.let { timestamp ->
+                withContext(Dispatchers.IO) {
+                    MpesaBalanceReconciler.estimateBalanceBefore(
+                        currentAccountBalance = account.balance,
+                        accountId = account.id,
+                        transactionTimestamp = timestamp,
+                        laterTransactions = db.transactionDao().getTransactionsSince(timestamp)
+                    )
+                }
+            }
+        }
+        mpesaBalanceCheck = accountBalanceBeforeMessage?.let { balanceBefore ->
+            MpesaBalanceReconciler.compare(
+                appBalanceBeforeTransaction = balanceBefore,
+                type = data.type,
+                amount = data.amount,
+                transactionCost = data.transactionCost.takeIf { logMpesaCosts && !isFeeDuplicate },
+                statementBalance = data.balance
+            )
+        }
         showAddTransaction = true
     }
 
@@ -1124,6 +1149,7 @@ fun MainScreen(
                 mpesaInitialTimestamp = null
                 mpesaExternalReference = null
                 mpesaTransactionCost = null
+                mpesaBalanceCheck = null
                 mpesaAiAssisted = false
                 mpesaInitialAccountId = null
                 mpesaInitialTransferFromId = null
@@ -1180,6 +1206,7 @@ fun MainScreen(
                     WidgetUpdateHelper.updateWidgets(context)
                     mpesaExternalReference = null
                     mpesaTransactionCost = null
+                    mpesaBalanceCheck = null
                     mpesaAiAssisted = false
                     shortcutPendingType.value = null
                 },
@@ -1286,6 +1313,7 @@ fun MainScreen(
                     }
                 },
                 mpesaTransactionCost = mpesaTransactionCost,
+                mpesaBalanceCheck = mpesaBalanceCheck,
                 mpesaAiAssisted = mpesaAiAssisted,
                 logMpesaCosts = logMpesaCosts,
                 onLoadDraft = { userPrefDataStore.getTransactionDraft() },

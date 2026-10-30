@@ -245,6 +245,17 @@ class UserPreferencesDataStore(private val dataStore: DataStore<Preferences>) {
     suspend fun saveMpesaAutoImportEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[MPESA_AUTO_IMPORT_ENABLED_KEY] = enabled
+            if (!enabled) prefs[MPESA_BACKGROUND_LOGGING_ENABLED_KEY] = false
+        }
+    }
+
+    val mpesaBackgroundLoggingEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[MPESA_BACKGROUND_LOGGING_ENABLED_KEY] ?: false
+    }
+
+    suspend fun saveMpesaBackgroundLoggingEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[MPESA_BACKGROUND_LOGGING_ENABLED_KEY] = enabled
         }
     }
 
@@ -288,6 +299,7 @@ class UserPreferencesDataStore(private val dataStore: DataStore<Preferences>) {
         private val LAST_SEEN_CHANGELOG_KEY = stringPreferencesKey("last_seen_changelog_version")
         private val LOG_MPESA_COSTS_KEY = booleanPreferencesKey("log_mpesa_costs")
         private val MPESA_AUTO_IMPORT_ENABLED_KEY = booleanPreferencesKey("mpesa_auto_import_enabled")
+        private val MPESA_BACKGROUND_LOGGING_ENABLED_KEY = booleanPreferencesKey("mpesa_background_logging_enabled")
         private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         private val AMOLED_MODE_KEY = booleanPreferencesKey("amoled_mode")
         private val TRANSACTION_DRAFT_KEY = stringPreferencesKey("transaction_draft")

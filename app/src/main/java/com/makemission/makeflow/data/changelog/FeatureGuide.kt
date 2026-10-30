@@ -47,7 +47,7 @@ val featureGuideEntries = listOf(
         "Enable optional weekly finance-review reminders in Settings. Notification permission is required; reminders can be disabled again."
     )),
     FeatureGuideEntry("M-PESA and on-device assistance", listOf(
-        "Share or paste M-PESA messages for review before saving. Parsed transaction costs are logged as a separate expense when Log M-PESA fees is enabled and linked back in History. Community builds also offer an opt-in new-message listener after SMS permission and disclosure; the Play build does not include it.",
+        "Share or paste M-PESA messages for review before saving. Parsed transaction costs are logged as a separate expense when Log M-PESA fees is enabled and linked back in History. Community builds offer an opt-in new-message listener; background logging is a separate opt-in and saves only when one M-PESA account can be identified. SMS closing balances are compared with the expected account balance, and mismatches are reported without changing the balance. The Play build does not include SMS listening.",
         "Category suggestions use history, corrections, and on-device classification. Supported devices may offer optional Gemini Nano message suggestions and monthly reflections. Review suggestions before use."
     )),
     FeatureGuideEntry("Insights, reviews, and exports", listOf(

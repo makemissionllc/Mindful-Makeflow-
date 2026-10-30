@@ -13,8 +13,10 @@ val CURRENT_CHANGELOG_VERSION = BuildConfig.VERSION_NAME
 val changelogEntries = listOf(
     ChangelogEntry(
         version = BuildConfig.VERSION_NAME,
-        date = "2026-10-22",
+        date = "2026-10-30",
         changes = listOf(
+            "Optionally save confirmed M-PESA transactions in the background to a single M-PESA account",
+            "Compare each SMS closing balance with the expected account balance and flag discrepancies without overwriting it",
             "Autosave unfinished full-screen transaction entries on this device and restore them when you return",
             "Use wallpaper-based Material You colors when following the system theme on Android 12 and newer",
             "Use the shared typography and spacing scale for the Home balance and account cards",

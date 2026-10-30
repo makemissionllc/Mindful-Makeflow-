@@ -38,9 +38,12 @@ Settings. Notification permission is requested only after you enable that settin
 Biometric authentication can protect app access, and vibration is used for touch feedback.
 The Google Play build does not request SMS access. The separately labeled Community build
 can optionally request permission to process new M-PESA messages; it checks only new
-message broadcasts, filters for the M-PESA sender, and requires review before saving.
-Message history is not read. M-PESA confirmations can also be shared or pasted into either
-build for review.
+message broadcasts and filters for the M-PESA sender. Messages go to review before saving by
+default; a separate explicit Community setting can save a confirmed transaction in the
+background when one M-PESA account is available. When present, the SMS closing balance is
+compared with the expected account balance, and differences are reported without overwriting
+the account. Message history is not read. M-PESA confirmations can also be shared or pasted
+into either build for review.
 
 ## Backups and deleting data
 

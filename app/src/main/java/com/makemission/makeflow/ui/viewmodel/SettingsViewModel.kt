@@ -72,6 +72,9 @@ class SettingsViewModel(
     val mpesaAutoImportEnabled: StateFlow<Boolean> = userPreferencesDataStore.mpesaAutoImportEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val mpesaBackgroundLoggingEnabled: StateFlow<Boolean> = userPreferencesDataStore.mpesaBackgroundLoggingEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     val themeMode: StateFlow<String> = userPreferencesDataStore.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "system")
 
@@ -127,6 +130,12 @@ class SettingsViewModel(
     fun saveMpesaAutoImportEnabled(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesDataStore.saveMpesaAutoImportEnabled(enabled)
+        }
+    }
+
+    fun saveMpesaBackgroundLoggingEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesDataStore.saveMpesaBackgroundLoggingEnabled(enabled)
         }
     }
 

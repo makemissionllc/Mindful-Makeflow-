@@ -6,6 +6,27 @@ plus verification status.
 
 Conventions: `path:line` for code refs, commit hashes where available.
 
+## 2026-10-30 — Add optional M-PESA background logging and balance checks
+
+- **Background import:** added a separate DataStore opt-in for saving recognized M-PESA
+  transactions directly from the SMS receiver. It uses the transaction commit handler,
+  external-reference deduplication, existing fee logging, and the single unambiguous M-PESA
+  account only; ambiguous account setups continue through the review notification. Auto-saved
+  transactions remain uncategorized for later categorization.
+- **Balance reference:** the receiver and review form retain the parsed SMS closing balance.
+  MakeFlow compares that value with the expected account balance after the transaction and
+  any fee being logged. Mismatches are reported in a notification or review form; account
+  balances are never silently replaced. Added pure-domain coverage for incoming, outgoing,
+  fee, missing-data, and mismatch cases.
+- **Release and docs:** Community advanced to `2.0.22-community` / code 25. Updated the README,
+  feature guide, privacy policy, settings disclosure, and release notes. No Room schema or
+  dependency changes.
+- **Verification:** `./gradlew :app:compileDebugKotlin`, `./gradlew test`, and
+  `./gradlew :app:compileDebugAndroidTestKotlin` passed. Device UI tests were not run because
+  `adb` and a connected physical device are unavailable. The first combined Gradle attempt
+  reported cascading unresolved Compose references; standalone compilation then passed without
+  a source change. `git diff --check` passed.
+
 ## 2026-10-24 — Prevent transaction suggestion overlap
 
 - **Type changes:** transaction details now use one composed branch for Transfer or

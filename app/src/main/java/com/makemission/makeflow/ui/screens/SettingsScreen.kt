@@ -143,6 +143,7 @@ fun SettingsScreen(
     val appLockEnabled by viewModel.appLockEnabled.collectAsState()
     val logMpesaCosts by viewModel.logMpesaCosts.collectAsState()
     val mpesaAutoImportEnabled by viewModel.mpesaAutoImportEnabled.collectAsState()
+    val mpesaBackgroundLoggingEnabled by viewModel.mpesaBackgroundLoggingEnabled.collectAsState()
     val financeReviewRemindersEnabled by viewModel.financeReviewRemindersEnabled.collectAsState()
     val hasPromptedNotif by viewModel.hasPromptedNotificationPermission.collectAsState()
     val listState = rememberLazyListState()
@@ -166,6 +167,7 @@ fun SettingsScreen(
         showCsvExportSheet = true
     }
     var showMpesaImportDisclosure by remember { mutableStateOf(false) }
+    var showMpesaBackgroundLoggingDisclosure by remember { mutableStateOf(false) }
     val config = LocalAdaptiveConfig.current
     val reducedMotion = LocalReducedMotion.current
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -338,17 +340,32 @@ fun SettingsScreen(
                     StaggeredItem(index = 10) {
                     MpesaAutoImportToggleRow(
                         enabled = mpesaAutoImportActive,
-                        subtitle = if (mpesaAutoImportActive) "New M-PESA messages only · review before saving" else "Optional · detects new M-PESA messages for review",
+                        subtitle = if (mpesaAutoImportActive) "Detect new M-PESA messages; review before saving" else "Optional · detects new M-PESA messages for review",
                         onToggle = { enable ->
                             if (enable) showMpesaImportDisclosure = true
-                            else viewModel.saveMpesaAutoImportEnabled(false)
+                            else {
+                                viewModel.saveMpesaAutoImportEnabled(false)
+                                viewModel.saveMpesaBackgroundLoggingEnabled(false)
+                            }
                         }
                     )
                     }
                 }
 
-                item {
+                if (BuildConfig.MPESA_SMS_AUTO_IMPORT_ENABLED && mpesaAutoImportActive) item {
                     StaggeredItem(index = 11) {
+                        MpesaBackgroundLoggingToggleRow(
+                            enabled = mpesaBackgroundLoggingEnabled,
+                            onToggle = { enable ->
+                                if (enable) showMpesaBackgroundLoggingDisclosure = true
+                                else viewModel.saveMpesaBackgroundLoggingEnabled(false)
+                            }
+                        )
+                    }
+                }
+
+                item {
+                    StaggeredItem(index = 12) {
                     MpesaCostsToggleRow(
                         enabled = logMpesaCosts,
                         onToggle = { viewModel.saveLogMpesaCosts(it) }
@@ -563,17 +580,32 @@ fun SettingsScreen(
                     StaggeredItem(index = 11) {
                     MpesaAutoImportToggleRow(
                         enabled = mpesaAutoImportActive,
-                        subtitle = if (mpesaAutoImportActive) "New M-PESA messages only · review before saving" else "Optional · detects new M-PESA messages for review",
+                        subtitle = if (mpesaAutoImportActive) "Detect new M-PESA messages; review before saving" else "Optional · detects new M-PESA messages for review",
                         onToggle = { enable ->
                             if (enable) showMpesaImportDisclosure = true
-                            else viewModel.saveMpesaAutoImportEnabled(false)
+                            else {
+                                viewModel.saveMpesaAutoImportEnabled(false)
+                                viewModel.saveMpesaBackgroundLoggingEnabled(false)
+                            }
                         }
                     )
                     }
                 }
 
-                item {
+                if (BuildConfig.MPESA_SMS_AUTO_IMPORT_ENABLED && mpesaAutoImportActive) item {
                     StaggeredItem(index = 12) {
+                        MpesaBackgroundLoggingToggleRow(
+                            enabled = mpesaBackgroundLoggingEnabled,
+                            onToggle = { enable ->
+                                if (enable) showMpesaBackgroundLoggingDisclosure = true
+                                else viewModel.saveMpesaBackgroundLoggingEnabled(false)
+                            }
+                        )
+                    }
+                }
+
+                item {
+                    StaggeredItem(index = 13) {
                     MpesaCostsToggleRow(
                         enabled = logMpesaCosts,
                         onToggle = { viewModel.saveLogMpesaCosts(it) }
@@ -582,7 +614,7 @@ fun SettingsScreen(
                 }
 
                 item {
-                    StaggeredItem(index = 13) {
+                    StaggeredItem(index = 14) {
                         FinanceReviewReminderToggleRow(
                             enabled = financeReviewRemindersEnabled,
                             onToggle = onFinanceReviewReminderToggle
@@ -714,7 +746,7 @@ fun SettingsScreen(
         AdaptiveSheetDialog(onDismiss = { showMpesaImportDisclosure = false }) {
             AdaptiveSheetHeader(
                 title = "M-PESA auto-import",
-                subtitle = "Review each transaction before saving",
+                subtitle = "Review each transaction before saving by default",
                 onDismiss = { showMpesaImportDisclosure = false }
             )
             Column(verticalArrangement = Arrangement.spacedBy(dimens.spacingMedium)) {
@@ -724,7 +756,7 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "The original message is not saved or sent off this device. A matching transaction is passed to a private MakeFlow notification and opened in the existing transaction review screen. Nothing is added until you review and save it.",
+                    text = "The original message is not saved or sent off this device. By default, a matching transaction is passed to a private MakeFlow notification and opened in the existing review screen. Background logging is a separate opt-in in Settings.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -746,6 +778,41 @@ fun SettingsScreen(
                 )
                 TextButton(
                     onClick = { showMpesaImportDisclosure = false },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Not now")
+                }
+            }
+        }
+    }
+
+    if (showMpesaBackgroundLoggingDisclosure) {
+        AdaptiveSheetDialog(onDismiss = { showMpesaBackgroundLoggingDisclosure = false }) {
+            AdaptiveSheetHeader(
+                title = "Background M-PESA logging",
+                subtitle = "Save confirmed transactions without opening the form",
+                onDismiss = { showMpesaBackgroundLoggingDisclosure = false }
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(dimens.spacingMedium)) {
+                Text(
+                    text = "MakeFlow adds a matching message to the single KES account whose name includes M-PESA. If there is no clear account, or a required transfer account is missing, it opens the existing review flow instead. Automatically logged entries start uncategorized.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "When the SMS includes a closing balance, MakeFlow compares it with the expected account balance after the transaction and any logged fee. Differences are reported for you to review; the account balance is not overwritten. The message stays on this device.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                AdaptiveSheetPrimaryButton(
+                    label = "Enable background logging",
+                    onClick = {
+                        showMpesaBackgroundLoggingDisclosure = false
+                        viewModel.saveMpesaBackgroundLoggingEnabled(true)
+                    }
+                )
+                TextButton(
+                    onClick = { showMpesaBackgroundLoggingDisclosure = false },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Not now")
@@ -961,6 +1028,7 @@ private fun SettingsRow(
             SettingText(title = title, subtitle = subtitle, modifier = Modifier.weight(1f))
         }
     }
+
 }
 
 @Composable
@@ -1128,6 +1196,40 @@ private fun MpesaAutoImportToggleRow(
         SettingText(
             title = "M-PESA auto-import",
             subtitle = subtitle,
+            modifier = Modifier.weight(1f),
+            titleWeight = FontWeight.Bold
+        )
+        Switch(
+            checked = enabled,
+            onCheckedChange = onToggle,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = LocalMakeFlowColors.current.colorSuccess,
+                uncheckedThumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            )
+        )
+    }
+}
+
+@Composable
+private fun MpesaBackgroundLoggingToggleRow(
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    val dimens = LocalAppDimens.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .pressScale()
+            .clickable { onToggle(!enabled) }
+            .padding(vertical = dimens.spacingSmall),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        SettingText(
+            title = "Background logging",
+            subtitle = "Save new M-PESA transactions automatically; check balance alerts",
             modifier = Modifier.weight(1f),
             titleWeight = FontWeight.Bold
         )
