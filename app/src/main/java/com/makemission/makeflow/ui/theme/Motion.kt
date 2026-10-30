@@ -50,9 +50,9 @@ data class ExpressiveMotionSpec(
             pressScale = 0.96f,
             releaseScale = 1f,
             longPressScale = 0.94f,
-            scaleAnimationSpec = tween<Float>(
-                durationMillis = 100,
-                easing = ExpressiveMotion.StandardDecelerate
+            scaleAnimationSpec = spring<Float>(
+                dampingRatio = 0.82f,
+                stiffness = Spring.StiffnessMediumLow
             ),
             colorAnimationSpec = tween<Color>(
                 durationMillis = 180,
@@ -109,7 +109,19 @@ object OverlayTransition {
     )
     val itemPlacementChange = tween<IntOffset>(durationMillis = 220, easing = ExpressiveMotion.EmphasizedEasing)
     const val TabSlideFraction = 1f / 6f
+    const val TabEnterScale = 0.985f
+    const val TabExitScale = 0.99f
+    const val NavSelectedIconScale = 1.06f
     const val ValueShiftFraction = 0.16f
+
+    val tabScaleEnter = spring<Float>(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessMediumLow
+    )
+    val navSelectionScale = spring<Float>(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessMedium
+    )
 
     // ── Float specs (fade, scale, progress) ──
     val enterFade = tween<Float>(durationMillis = 220, easing = ExpressiveMotion.StandardDecelerate)

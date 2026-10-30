@@ -6,6 +6,21 @@ plus verification status.
 
 Conventions: `path:line` for code refs, commit hashes where available.
 
+## 2026-10-30 — Refine shared motion toward a fluid spring feel
+
+- **Touch feedback:** shared press scaling now settles with a lightly damped spring,
+  giving taps a softer, more responsive release across interactive controls.
+- **Navigation:** the selected bottom-navigation icon scales in with a restrained spring;
+  tab content now combines its directional slide and fade with a small scale settle. The
+  scale magnitudes and motion specs are shared tokens, and reduced-motion mode keeps the
+  added scale effects disabled.
+- **Verification:** `./gradlew test :app:compileDebugKotlin
+  :app:compileDebugAndroidTestKotlin` passed. All 107 connected instrumented tests passed
+  on the OPPO CPH2745 (Android 16). Visually checked Home, Insights, and Budget using a
+  temporary `.codextest` package; SMS and notification access were not enabled, no
+  transaction was saved, and the package was removed afterward. The regular Community
+  install was left untouched. `git diff --check` passed.
+
 ## 2026-10-30 — Refine phone layout and validate M-PESA logging
 
 - **Home layout:** reserved the compact dashboard's bottom navigation/action dock in the

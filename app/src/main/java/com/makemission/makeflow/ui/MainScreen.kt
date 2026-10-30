@@ -1450,14 +1450,22 @@ private fun TabContentAnimated(
             previousTabIndex.value = tabIndex
             val enterSlide = if (reducedMotion) OverlayTransition.reducedEnterSlide else OverlayTransition.enterSlide
             val exitSlide = if (reducedMotion) OverlayTransition.reducedExitSlide else OverlayTransition.exitSlide
-            (fadeIn(if (reducedMotion) OverlayTransition.reducedEnter else OverlayTransition.enterFade) + slideInHorizontally(
-                animationSpec = enterSlide,
-                initialOffsetX = { (it * OverlayTransition.TabSlideFraction * direction).toInt() }
-            )) togetherWith
-            (fadeOut(if (reducedMotion) OverlayTransition.reducedExit else OverlayTransition.exitFade) + slideOutHorizontally(
-                animationSpec = exitSlide,
-                targetOffsetX = { -(it * OverlayTransition.TabSlideFraction * direction).toInt() }
-            ))
+            (fadeIn(if (reducedMotion) OverlayTransition.reducedEnter else OverlayTransition.enterFade) +
+                slideInHorizontally(
+                    animationSpec = enterSlide,
+                    initialOffsetX = { (it * OverlayTransition.TabSlideFraction * direction).toInt() }
+                ) + scaleIn(
+                    initialScale = if (reducedMotion) 1f else OverlayTransition.TabEnterScale,
+                    animationSpec = if (reducedMotion) OverlayTransition.reducedEnter else OverlayTransition.tabScaleEnter
+                )) togetherWith
+                (fadeOut(if (reducedMotion) OverlayTransition.reducedExit else OverlayTransition.exitFade) +
+                    slideOutHorizontally(
+                        animationSpec = exitSlide,
+                        targetOffsetX = { -(it * OverlayTransition.TabSlideFraction * direction).toInt() }
+                    ) + scaleOut(
+                        targetScale = if (reducedMotion) 1f else OverlayTransition.TabExitScale,
+                        animationSpec = if (reducedMotion) OverlayTransition.reducedExit else OverlayTransition.fastExit
+                    ))
         },
         label = "TabContent"
     ) { tab ->

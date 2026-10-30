@@ -1,6 +1,8 @@
 package com.makemission.makeflow.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -400,6 +403,11 @@ fun FloatingPillNav(
         ) {
             items.forEachIndexed { index, item ->
                 val selected = index == selectedIndex
+                val iconScale = animateFloatAsState(
+                    targetValue = if (selected && !reducedMotion) OverlayTransition.NavSelectedIconScale else 1f,
+                    animationSpec = if (reducedMotion) snap() else OverlayTransition.navSelectionScale,
+                    label = "navIconScale"
+                ).value
                 val selectedColor = animateColorAsState(
                     targetValue = if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent,
                     animationSpec = if (reducedMotion) {
@@ -427,7 +435,9 @@ fun FloatingPillNav(
                         imageVector = item.icon,
                         contentDescription = item.label,
                         tint = navContentColor,
-                        modifier = Modifier.size(dimens.navbarItemSize)
+                        modifier = Modifier
+                            .size(dimens.navbarItemSize)
+                            .scale(iconScale)
                     )
                     Text(
                         text = item.label,
