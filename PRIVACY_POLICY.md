@@ -2,7 +2,7 @@
 
 Last updated: 9 October 2026.
 
-Applies to Play version 2.0.0 and Community version 2.0.6-community.
+Applies to Play version 2.0.0 and Community version 2.0.23-community.
 
 ## At a glance
 
@@ -13,8 +13,12 @@ Android backup is disabled.
 ## Information stored on your device
 
 The app stores the name you choose, account names and balances, transactions, categories,
-budgets, savings goals, recurring items, exchange-rate preferences, and app settings.
-These records are kept locally using Android app storage.
+budgets, savings goals, recurring items, exchange-rate preferences, app settings, and a
+bounded diagnostic log. These records are kept locally using Android app storage.
+Diagnostic events include session and operation identifiers, import decisions, balance-check
+values, and error stack traces. Incoming M-PESA and Ziidi message bodies are not written to the
+diagnostic log; structured import events hash transaction references and account IDs. Logs are
+pruned after 30 days and capped at 1,000 entries.
 
 ## Online exchange rates
 
@@ -37,13 +41,17 @@ Optional weekly finance reminders use Android notifications and can be turned of
 Settings. Notification permission is requested only after you enable that setting.
 Biometric authentication can protect app access, and vibration is used for touch feedback.
 The Google Play build does not request SMS access. The separately labeled Community build
-can optionally request permission to process new M-PESA messages; it checks only new
-message broadcasts and filters for the M-PESA sender. Messages go to review before saving by
-default; a separate explicit Community setting can save a confirmed transaction in the
-background when one M-PESA account is available. When present, the SMS closing balance is
-compared with the expected account balance, and differences are reported without overwriting
-the account. Message history is not read. M-PESA confirmations can also be shared or pasted
-into either build for review.
+can optionally request permission to process new M-PESA and Ziidi messages; it checks only new
+message broadcasts and filters for those sender IDs. Messages go to review before saving by
+default; a separate explicit Community setting can save confirmed transactions in the
+background when the M-PESA and ZiDi accounts are unambiguous. Closing balances are compared
+with the expected balance of the named account, and differences are reported without
+overwriting it. Message history is not read. M-PESA and Ziidi confirmations can also be shared
+or pasted into either build for review.
+
+Settings > Share diagnostic log creates a report only when you request it and opens Android's
+share menu. The report may contain transaction amounts and account balance checks; review it
+before choosing a destination. Sharing is handled by the app you select.
 
 ## Backups and deleting data
 

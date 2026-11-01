@@ -60,10 +60,12 @@ minify + resource shrinking (`app/proguard-rules.pro`).
 - **M-PESA import** — rule-based parsing for share/paste, including transaction costs. With
   fee logging enabled, charges are recorded separately and linked to the source in History. The optional new-message listener
   is enabled only on the `community` branch; the `play` branch does not request SMS permission.
-  The listener is opt-in and sender-filtered, and review-before-save by default. An additional opt-in
-  can save new messages in the background when exactly one M-PESA account is available; SMS closing
-  balances are compared with the expected account balance and discrepancies are surfaced without
-  overwriting it. On supported devices, Gemini Nano may
+  The listener is opt-in and sender-filtered, and review-before-save by default. M-PESA and Ziidi
+  confirmations are supported; Ziidi investments and withdrawals become transfers in the correct
+  direction between M-PESA and an account named `ZiDi` or `Ziidi`. An additional opt-in can save new
+  messages in the background when accounts are unambiguous; M-PESA or Ziidi closing balances are
+  compared with the expected account balance and discrepancies are surfaced without overwriting it.
+  On supported devices, Gemini Nano may
   offer an on-device fallback for shared messages. Suggestions must be
   reviewed before use. See `GOOGLE_PLAY_SMS_PERMISSION_REVIEW.md` for the release decision.
 - **Smart categorization** — 3-tier suggester (history → correction memory → on-device
@@ -103,6 +105,10 @@ minify + resource shrinking (`app/proguard-rules.pro`).
 - **Privacy and release** — local finance storage, automatic Android backup disabled,
   user-initiated export/restore, in-app privacy policy, and a Play manifest without SMS
   listener access. See `PRIVACY_POLICY.md` and `PLAY_STORE_RELEASE_CHECKLIST.md`.
+- **Diagnostics** — local app logs correlate events by process session and operation, record
+  import direction and balance checks, and include errors with stack traces. Settings can share
+  a user-requested report; imported message bodies are excluded and transaction references and
+  account IDs in structured import events are hashed.
 
 ## Release branches
 
@@ -112,7 +118,7 @@ minify + resource shrinking (`app/proguard-rules.pro`).
   M-PESA listener. Build its GitHub APK with `:app:assembleRelease`; its application ID is
   `com.makemission.makeflow.community`. GitHub updates require a published, signed APK built with
   the same signing key as the installed app; Android asks the user to allow this source and confirm.
-- The current Community build is `2.0.22-community` / code 25.
+- The current Community build is `2.0.23-community` / code 26.
 - Keep Play policy restrictions on the `play` branch. Do not submit the Community artifact
   to Google Play.
 - SMS Retriever is not used for M-PESA: it only returns messages containing this app's

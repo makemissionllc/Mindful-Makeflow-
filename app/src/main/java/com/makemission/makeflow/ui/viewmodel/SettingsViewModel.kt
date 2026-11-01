@@ -49,6 +49,9 @@ class SettingsViewModel(
     private val _isExportingCsv = MutableStateFlow(false)
     val isExportingCsv = _isExportingCsv.asStateFlow()
 
+    private val _isExportingDiagnostics = MutableStateFlow(false)
+    val isExportingDiagnostics = _isExportingDiagnostics.asStateFlow()
+
     val selectedCurrency: StateFlow<String> = userPreferencesDataStore.selectedCurrency
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "KES")
 
@@ -124,18 +127,36 @@ class SettingsViewModel(
     fun saveLogMpesaCosts(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesDataStore.saveLogMpesaCosts(enabled)
+            AppLogger.event(
+                "Settings",
+                "mpesa_fee_logging_changed",
+                AppLogger.newOperationId(),
+                mapOf("enabled" to enabled)
+            )
         }
     }
 
     fun saveMpesaAutoImportEnabled(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesDataStore.saveMpesaAutoImportEnabled(enabled)
+            AppLogger.event(
+                "Settings",
+                "message_detection_changed",
+                AppLogger.newOperationId(),
+                mapOf("enabled" to enabled)
+            )
         }
     }
 
     fun saveMpesaBackgroundLoggingEnabled(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesDataStore.saveMpesaBackgroundLoggingEnabled(enabled)
+            AppLogger.event(
+                "Settings",
+                "background_message_logging_changed",
+                AppLogger.newOperationId(),
+                mapOf("enabled" to enabled)
+            )
         }
     }
 
@@ -154,6 +175,30 @@ class SettingsViewModel(
     fun saveAmoledMode(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesDataStore.saveAmoledMode(enabled)
+        }
+    }
+
+    fun exportDiagnosticLog(
+        context: Context,
+        onError: () -> Unit = {},
+        onComplete: (String) -> Unit = {}
+    ) {
+        if (_isExportingDiagnostics.value) return
+        _isExportingDiagnostics.value = true
+        viewModelScope.launch {
+            try {
+                val report = withContext(Dispatchers.IO) {
+                    AppLogger.buildDiagnosticReport(context.applicationContext)
+                }
+                onComplete(report)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                AppLogger.error("DiagnosticExport", "Could not build the diagnostic report", error)
+                onError()
+            } finally {
+                _isExportingDiagnostics.value = false
+            }
         }
     }
 

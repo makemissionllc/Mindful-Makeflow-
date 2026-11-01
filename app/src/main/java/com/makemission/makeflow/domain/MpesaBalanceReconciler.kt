@@ -48,14 +48,23 @@ object MpesaBalanceReconciler {
         type: MpesaMessageParser.TransactionType,
         amount: Double,
         transactionCost: Double?,
-        statementBalance: Double?
+        statementBalance: Double?,
+        balanceSource: MpesaMessageParser.BalanceSource = MpesaMessageParser.BalanceSource.MPESA
     ): MpesaBalanceCheck? {
         if (!appBalanceBeforeTransaction.isFinite() || !amount.isFinite() || amount <= 0.0) return null
         val closingBalance = statementBalance?.takeIf { it.isFinite() && it >= 0.0 } ?: return null
-        val fee = transactionCost?.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
+        val fee = if (balanceSource == MpesaMessageParser.BalanceSource.MPESA) {
+            transactionCost?.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
+        } else {
+            0.0
+        }
         val signedAmount = when (type) {
-            MpesaMessageParser.TransactionType.RECEIVED -> amount
-            MpesaMessageParser.TransactionType.SENT,
+            MpesaMessageParser.TransactionType.RECEIVED -> if (
+                balanceSource == MpesaMessageParser.BalanceSource.MPESA
+            ) amount else -amount
+            MpesaMessageParser.TransactionType.SENT -> if (
+                balanceSource == MpesaMessageParser.BalanceSource.MPESA
+            ) -amount else amount
             MpesaMessageParser.TransactionType.PAYBILL,
             MpesaMessageParser.TransactionType.WITHDRAW,
             MpesaMessageParser.TransactionType.AIRTIME -> -amount

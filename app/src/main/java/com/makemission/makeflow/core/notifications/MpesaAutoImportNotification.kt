@@ -14,6 +14,7 @@ import com.makemission.makeflow.MainActivity
 import com.makemission.makeflow.R
 import com.makemission.makeflow.domain.MpesaBalanceCheck
 import com.makemission.makeflow.domain.MpesaMessageParser
+import com.makemission.makeflow.domain.MpesaZiidiTransferResolver
 import java.util.Locale
 
 object MpesaAutoImportNotification {
@@ -29,6 +30,9 @@ object MpesaAutoImportNotification {
     private const val EXTRA_HAS_COST = "mpesa_import_has_cost"
     private const val EXTRA_BALANCE = "mpesa_import_balance"
     private const val EXTRA_HAS_BALANCE = "mpesa_import_has_balance"
+    private const val EXTRA_BALANCE_SOURCE = "mpesa_import_balance_source"
+    private const val EXTRA_TIMESTAMP = "mpesa_import_timestamp"
+    private const val EXTRA_OPERATION_ID = "mpesa_import_operation_id"
 
     fun hasNotificationAccess(context: Context): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(
@@ -63,6 +67,9 @@ object MpesaAutoImportNotification {
             putExtra(EXTRA_COST, message.transactionCost ?: 0.0)
             putExtra(EXTRA_HAS_BALANCE, message.balance != null)
             putExtra(EXTRA_BALANCE, message.balance ?: 0.0)
+            putExtra(EXTRA_BALANCE_SOURCE, message.balanceSource.name)
+            putExtra(EXTRA_TIMESTAMP, message.timestampMillis ?: 0L)
+            putExtra(EXTRA_OPERATION_ID, message.operationId)
         }
         val pendingIntent = PendingIntent.getActivity(
             context,
@@ -72,7 +79,7 @@ object MpesaAutoImportNotification {
         )
         val notification = NotificationCompat.Builder(context, NotificationChannels.CHANNEL_MPESA_IMPORTS)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("M-PESA transaction ready")
+            .setContentTitle(if (isZiidiTransfer(message)) "ZiDi transfer ready" else "M-PESA transaction ready")
             .setContentText("Tap to review and save it in MakeFlow")
             .setContentIntent(pendingIntent)
             .setCategory(NotificationCompat.CATEGORY_EVENT)
@@ -103,14 +110,15 @@ object MpesaAutoImportNotification {
         val body = when {
             balanceCheck != null && !balanceCheck.matches -> {
                 val direction = if (balanceCheck.difference > 0.0) "above" else "below"
-                "Saved. SMS balance is Ksh ${formatAmount(kotlin.math.abs(balanceCheck.difference))} $direction the app's expected balance. Review your M-PESA account."
+                val balanceAccount = if (message.balanceSource == MpesaMessageParser.BalanceSource.ZIIDI) "ZiDi" else "M-PESA"
+                "Saved. SMS balance is Ksh ${formatAmount(kotlin.math.abs(balanceCheck.difference))} $direction the app's expected balance. Review your $balanceAccount account."
             }
             anomalyDetected -> "Saved. Review the unusually large amount in MakeFlow."
-            else -> "Saved to your M-PESA account. Tap to open MakeFlow."
+            else -> "Saved to your ${destinationAccountLabel(message)} account. Tap to open MakeFlow."
         }
         val notification = NotificationCompat.Builder(context, NotificationChannels.CHANNEL_MPESA_IMPORTS)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("M-PESA transaction saved")
+            .setContentTitle(if (isZiidiTransfer(message)) "ZiDi transfer saved" else "M-PESA transaction saved")
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(pendingIntent)
@@ -133,8 +141,8 @@ object MpesaAutoImportNotification {
         val amount = intent.getDoubleExtra(EXTRA_AMOUNT, 0.0)
             .takeIf { it.isFinite() && it > 0.0 }
             ?: return null
-        val date = intent.getStringExtra(EXTRA_DATE)?.takeIf(String::isNotBlank) ?: return null
-        val time = intent.getStringExtra(EXTRA_TIME)?.takeIf(String::isNotBlank) ?: return null
+        val date = intent.getStringExtra(EXTRA_DATE).orEmpty()
+        val time = intent.getStringExtra(EXTRA_TIME).orEmpty()
         val hasCost = intent.getBooleanExtra(EXTRA_HAS_COST, false)
         val cost = if (hasCost) {
             intent.getDoubleExtra(EXTRA_COST, 0.0).takeIf { it.isFinite() && it >= 0.0 } ?: return null
@@ -147,6 +155,10 @@ object MpesaAutoImportNotification {
         } else {
             null
         }
+        val balanceSource = intent.getStringExtra(EXTRA_BALANCE_SOURCE)
+            ?.let { name -> runCatching { MpesaMessageParser.BalanceSource.valueOf(name) }.getOrNull() }
+            ?: MpesaMessageParser.BalanceSource.MPESA
+        val timestampMillis = intent.getLongExtra(EXTRA_TIMESTAMP, 0L).takeIf { it > 0L }
 
         return MpesaMessageParser.MpesaParsedMessage(
             code = code,
@@ -157,9 +169,22 @@ object MpesaAutoImportNotification {
             date = date,
             time = time,
             balance = balance,
-            transactionCost = cost
+            transactionCost = cost,
+            balanceSource = balanceSource,
+            timestampMillis = timestampMillis,
+            operationId = intent.getStringExtra(EXTRA_OPERATION_ID)
         )
     }
+
+    private fun isZiidiTransfer(message: MpesaMessageParser.MpesaParsedMessage): Boolean =
+        MpesaZiidiTransferResolver.isZiidiCounterparty(message.counterpartyName)
+
+    private fun destinationAccountLabel(message: MpesaMessageParser.MpesaParsedMessage): String =
+        if (isZiidiTransfer(message) && MpesaZiidiTransferResolver.direction(message.type) == MpesaZiidiTransferResolver.Direction.TO_ZIIDI) {
+            "ZiDi"
+        } else {
+            "M-PESA"
+        }
 
     private fun formatAmount(amount: Double): String =
         String.format(Locale.getDefault(), "%,.2f", amount)

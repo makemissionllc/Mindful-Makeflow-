@@ -6,6 +6,27 @@ plus verification status.
 
 Conventions: `path:line` for code refs, commit hashes where available.
 
+## 2026-11-01 — Resolve ZiDi transfer direction and add diagnostic sessions
+
+- **ZiDi imports:** parse ZiDi investment and withdrawal confirmations alongside M-PESA
+  messages. Investment maps from M-PESA to the `ZiDi` account; withdrawal maps from
+  `ZiDi` to M-PESA. Imports use the matching message's closing balance and reconcile it
+  against the corresponding account. Ambiguous accounts and unrecognized directions
+  remain in review. SMS timestamps are retained when ZiDi messages omit an internal date.
+- **Diagnostics:** app log entries now carry a process session and thread context;
+  transaction-import steps are correlated by operation ID and record parser decisions,
+  direction, balances, save outcomes, and errors. Transaction references and account IDs
+  are hashed in structured events. Settings can share a local report containing recent
+  events and crash details; message bodies are not added to the report. Existing log
+  retention remains bounded to 1,000 entries and 30 days.
+- **Release and docs:** Community advanced to `2.0.23-community` / code 26. Updated the
+  README, feature guide, privacy policy, and release notes. No Room schema or dependency
+  changes. Added parser, direction, and balance-reconciliation unit coverage.
+- **Verification:** `git diff --check` passed. The required Gradle unit/compile checks
+  could not start because this environment has no `JAVA_HOME` or `java` executable;
+  followed the repository's static import/usage cross-check fallback. No connected-device
+  UI verification was run.
+
 ## 2026-10-30 — Refine shared motion toward a fluid spring feel
 
 - **Touch feedback:** shared press scaling now settles with a lightly damped spring,

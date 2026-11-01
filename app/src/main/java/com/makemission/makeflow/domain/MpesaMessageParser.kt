@@ -19,6 +19,11 @@ object MpesaMessageParser {
         UNKNOWN
     }
 
+    enum class BalanceSource {
+        MPESA,
+        ZIIDI
+    }
+
     data class MpesaParsedMessage(
         val code: String,
         val type: TransactionType,
@@ -31,7 +36,10 @@ object MpesaMessageParser {
         val transactionCost: Double?,
         val isRatiba: Boolean = false,
         val rawCounterparty: String? = null,
-        val isAiAssisted: Boolean = false
+        val isAiAssisted: Boolean = false,
+        val balanceSource: BalanceSource = BalanceSource.MPESA,
+        val timestampMillis: Long? = null,
+        val operationId: String? = null
     )
 
     fun parse(text: String): MpesaParsedMessage? {

@@ -86,6 +86,36 @@ class MpesaBalanceReconcilerTest {
     }
 
     @Test
+    fun ziidiInvestmentIncreasesZiidiBalance() {
+        val result = MpesaBalanceReconciler.compare(
+            appBalanceBeforeTransaction = 1000.0,
+            type = MpesaMessageParser.TransactionType.SENT,
+            amount = 200.0,
+            transactionCost = null,
+            statementBalance = 1200.0,
+            balanceSource = MpesaMessageParser.BalanceSource.ZIIDI
+        )
+
+        assertEquals(1200.0, result?.expectedBalance ?: 0.0, 0.0)
+        assertTrue(result?.matches == true)
+    }
+
+    @Test
+    fun ziidiWithdrawalDecreasesZiidiBalance() {
+        val result = MpesaBalanceReconciler.compare(
+            appBalanceBeforeTransaction = 1000.0,
+            type = MpesaMessageParser.TransactionType.RECEIVED,
+            amount = 200.0,
+            transactionCost = null,
+            statementBalance = 800.0,
+            balanceSource = MpesaMessageParser.BalanceSource.ZIIDI
+        )
+
+        assertEquals(800.0, result?.expectedBalance ?: 0.0, 0.0)
+        assertTrue(result?.matches == true)
+    }
+
+    @Test
     fun mismatchReportsStatementDifference() {
         val result = MpesaBalanceReconciler.compare(
             appBalanceBeforeTransaction = 1000.0,

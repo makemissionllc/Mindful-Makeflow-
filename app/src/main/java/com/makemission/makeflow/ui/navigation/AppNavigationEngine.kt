@@ -31,6 +31,7 @@ import com.makemission.makeflow.data.local.UserPreferencesDataStore
 import com.makemission.makeflow.data.local.userPrefDataStore
 import com.makemission.makeflow.data.repository.FinanceRepositoryImpl
 import com.makemission.makeflow.domain.MpesaMessageParser
+import com.makemission.makeflow.domain.ZiidiMessageParser
 import com.makemission.makeflow.ui.MainScreen
 import com.makemission.makeflow.ui.screens.OnboardingScreen
 import com.makemission.makeflow.ui.theme.MakeFlowTheme
@@ -149,18 +150,38 @@ fun AppNavigationEngine(
 
     LaunchedEffect(sharedText) {
         if (sharedText != null) {
-            val deterministic = MpesaMessageParser.parse(sharedText)
+            val operationId = AppLogger.newOperationId()
+            AppLogger.event(
+                tag = "AppNav",
+                event = "shared_message_received",
+                operationId = operationId,
+                details = mapOf("characters" to sharedText.length)
+            )
+            val ziidi = ZiidiMessageParser.parse(sharedText)
+            val deterministic = ziidi ?: MpesaMessageParser.parse(sharedText)
             val result = deterministic
                 ?.takeIf { it.type != MpesaMessageParser.TransactionType.UNKNOWN }
                 ?: MpesaGeminiNanoParser.parseIfAvailable(sharedText)
             if (result != null) {
-                parsedMpesa = result
+                parsedMpesa = result.copy(operationId = operationId)
                 shareParseError = null
-                AppLogger.info("AppNav", "Shared M-PESA message parsed")
+                AppLogger.event(
+                    "AppNav",
+                    "shared_message_parsed",
+                    operationId,
+                    mapOf(
+                        "source" to result.balanceSource,
+                        "type" to result.type,
+                        "amount" to result.amount,
+                        "balance" to result.balance,
+                        "reference_hash" to AppLogger.hashIdentifier(result.code),
+                        "ai_assisted" to result.isAiAssisted
+                    )
+                )
             } else {
                 parsedMpesa = null
                 shareParseError = "MakeFlow couldn't verify this as a completed M-PESA transaction. You can enter it manually."
-                AppLogger.warn("AppNav", "Shared text was not recognized as M-PESA")
+                AppLogger.event("AppNav", "shared_message_not_recognized", operationId, level = "WARN")
             }
             onSharedTextConsumed()
         }

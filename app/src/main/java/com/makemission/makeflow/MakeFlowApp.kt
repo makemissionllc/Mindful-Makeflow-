@@ -2,6 +2,7 @@ package com.makemission.makeflow
 
 import android.app.Application
 import android.util.Log
+import com.makemission.makeflow.BuildConfig
 import com.makemission.makeflow.core.logging.AppLogger
 import com.makemission.makeflow.core.update.GithubAppUpdateScheduler
 import com.makemission.makeflow.data.local.AppDatabase
@@ -15,7 +16,16 @@ class MakeFlowApp : Application() {
         AppLogger.init(database)
         GithubAppUpdateScheduler.schedule(this)
         installCrashHandler()
-        AppLogger.info("MakeFlowApp", "Application initialized successfully")
+        AppLogger.event(
+            tag = "MakeFlowApp",
+            event = "application_initialized",
+            operationId = AppLogger.newOperationId(),
+            details = mapOf(
+                "version" to BuildConfig.VERSION_NAME,
+                "build_type" to BuildConfig.BUILD_TYPE,
+                "flavor" to BuildConfig.FLAVOR
+            )
+        )
     }
 
     private fun installCrashHandler() {

@@ -1,6 +1,7 @@
 package com.makemission.makeflow.ui.screens
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
@@ -160,11 +161,33 @@ fun SettingsScreen(
     var showCsvExportSheet by rememberSaveable { mutableStateOf(false) }
     var csvCalendarNow by remember { mutableStateOf(ZonedDateTime.now()) }
     val isExportingCsv by viewModel.isExportingCsv.collectAsState()
+    val isExportingDiagnostics by viewModel.isExportingDiagnostics.collectAsState()
     val context = LocalContext.current
     val openCsvExport = {
         hapticManager?.fire(HapticEvent.NAV_SELECT)
         csvCalendarNow = ZonedDateTime.now()
         showCsvExportSheet = true
+    }
+    val exportDiagnostics = {
+        hapticManager?.fire(HapticEvent.NAV_SELECT)
+        viewModel.exportDiagnosticLog(
+            context = context,
+            onError = {
+                Toast.makeText(context, "Could not prepare the diagnostic log.", Toast.LENGTH_LONG).show()
+            },
+            onComplete = { report ->
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, "MakeFlow diagnostic report")
+                    putExtra(Intent.EXTRA_TEXT, report)
+                }
+                runCatching {
+                    context.startActivity(Intent.createChooser(shareIntent, "Share diagnostic report"))
+                }.onFailure {
+                    Toast.makeText(context, "No app is available to share the diagnostic log.", Toast.LENGTH_LONG).show()
+                }
+            }
+        )
     }
     var showMpesaImportDisclosure by remember { mutableStateOf(false) }
     var showMpesaBackgroundLoggingDisclosure by remember { mutableStateOf(false) }
@@ -340,7 +363,7 @@ fun SettingsScreen(
                     StaggeredItem(index = 10) {
                     MpesaAutoImportToggleRow(
                         enabled = mpesaAutoImportActive,
-                        subtitle = if (mpesaAutoImportActive) "Detect new M-PESA messages; review before saving" else "Optional · detects new M-PESA messages for review",
+                        subtitle = if (mpesaAutoImportActive) "Detect M-PESA and ZiDi messages; review before saving" else "Optional · detects M-PESA and ZiDi messages for review",
                         onToggle = { enable ->
                             if (enable) showMpesaImportDisclosure = true
                             else {
@@ -412,6 +435,18 @@ fun SettingsScreen(
                         SettingsRow(icon=Icons.Outlined.FileDownload, title="Export PDF", subtitle="Statement with date range", onClick={ showPdfExportDialog = true })
                         }
                     }
+                    }
+                }
+
+                item {
+                    StaggeredItem(index = 15) {
+                        SettingsRow(
+                            icon = Icons.Outlined.Info,
+                            title = "Share diagnostic log",
+                            subtitle = if (isExportingDiagnostics) "Preparing local event history" else "Troubleshooting events and balance checks; review before sharing",
+                            enabled = !isExportingDiagnostics,
+                            onClick = exportDiagnostics
+                        )
                     }
                 }
 
@@ -580,7 +615,7 @@ fun SettingsScreen(
                     StaggeredItem(index = 11) {
                     MpesaAutoImportToggleRow(
                         enabled = mpesaAutoImportActive,
-                        subtitle = if (mpesaAutoImportActive) "Detect new M-PESA messages; review before saving" else "Optional · detects new M-PESA messages for review",
+                        subtitle = if (mpesaAutoImportActive) "Detect M-PESA and ZiDi messages; review before saving" else "Optional · detects M-PESA and ZiDi messages for review",
                         onToggle = { enable ->
                             if (enable) showMpesaImportDisclosure = true
                             else {
@@ -653,18 +688,30 @@ fun SettingsScreen(
 
                 item {
                     StaggeredItem(index = 16) {
-                    SettingsRow(icon=Icons.Outlined.Save, title="Backup Now", subtitle="Save all data to a file", onClick={ onBackup() })
+                        SettingsRow(
+                            icon = Icons.Outlined.Info,
+                            title = "Share diagnostic log",
+                            subtitle = if (isExportingDiagnostics) "Preparing local event history" else "Troubleshooting events and balance checks; review before sharing",
+                            enabled = !isExportingDiagnostics,
+                            onClick = exportDiagnostics
+                        )
                     }
                 }
 
                 item {
                     StaggeredItem(index = 17) {
-                    SettingsRow(icon=Icons.Outlined.RestorePage, title="Restore from Backup", subtitle="Replace all data from a file", onClick={ onRestore() })
+                    SettingsRow(icon=Icons.Outlined.Save, title="Backup Now", subtitle="Save all data to a file", onClick={ onBackup() })
                     }
                 }
 
                 item {
                     StaggeredItem(index = 18) {
+                    SettingsRow(icon=Icons.Outlined.RestorePage, title="Restore from Backup", subtitle="Replace all data from a file", onClick={ onRestore() })
+                    }
+                }
+
+                item {
+                    StaggeredItem(index = 19) {
                     ResetPersonalizationRow(
                         viewModel = viewModel,
                         showConfirm = showResetPersonalizationConfirm,
@@ -675,7 +722,7 @@ fun SettingsScreen(
                 }
 
                 item {
-                    StaggeredItem(index = 19) {
+                    StaggeredItem(index = 20) {
                     SettingsRow(icon=Icons.Outlined.Delete, title="Clear All Data", subtitle="Reset everything", onClick={ showClearConfirm = true })
                     }
                 }
@@ -751,7 +798,7 @@ fun SettingsScreen(
             )
             Column(verticalArrangement = Arrangement.spacedBy(dimens.spacingMedium)) {
                 Text(
-                    text = "When enabled, MakeFlow receives new SMS events, checks the sender ID first, and reads the message only when it exactly matches MPESA and the confirmation format is valid. Other senders are ignored. Your SMS inbox history is not read.",
+                    text = "When enabled, MakeFlow receives new SMS events, checks the sender ID first, and reads only messages from MPESA or ZIIDI whose transaction confirmation format is valid. Other senders are ignored. Your SMS inbox history is not read.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -789,18 +836,18 @@ fun SettingsScreen(
     if (showMpesaBackgroundLoggingDisclosure) {
         AdaptiveSheetDialog(onDismiss = { showMpesaBackgroundLoggingDisclosure = false }) {
             AdaptiveSheetHeader(
-                title = "Background M-PESA logging",
+                title = "Background transaction logging",
                 subtitle = "Save confirmed transactions without opening the form",
                 onDismiss = { showMpesaBackgroundLoggingDisclosure = false }
             )
             Column(verticalArrangement = Arrangement.spacedBy(dimens.spacingMedium)) {
                 Text(
-                    text = "MakeFlow adds a matching message to the single KES account whose name includes M-PESA. If there is no clear account, or a required transfer account is missing, it opens the existing review flow instead. Automatically logged entries start uncategorized.",
+                    text = "MakeFlow logs M-PESA activity to the single KES account whose name includes M-PESA. ZiDi investments and withdrawals become transfers between that account and the account named ZiDi (or Ziidi). Direction comes from the confirmed sent, received, invested, or withdrawn wording. If accounts or direction are ambiguous, it opens the review flow instead. Automatically logged entries start uncategorized.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "When the SMS includes a closing balance, MakeFlow compares it with the expected account balance after the transaction and any logged fee. Differences are reported for you to review; the account balance is not overwritten. The message stays on this device.",
+                    text = "When the message includes a closing balance, MakeFlow compares it with the expected balance for the named M-PESA or ZiDi account after the transaction and any logged fee. Differences are reported for you to review; account balances are not overwritten. Message bodies stay on this device and are not added to diagnostics.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1229,7 +1276,7 @@ private fun MpesaBackgroundLoggingToggleRow(
     ) {
         SettingText(
             title = "Background logging",
-            subtitle = "Save new M-PESA transactions automatically; check balance alerts",
+            subtitle = "Save new M-PESA and ZiDi transactions; check their balance alerts",
             modifier = Modifier.weight(1f),
             titleWeight = FontWeight.Bold
         )

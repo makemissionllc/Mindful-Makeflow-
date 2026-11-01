@@ -47,7 +47,7 @@ val featureGuideEntries = listOf(
         "Enable optional weekly finance-review reminders in Settings. Notification permission is required; reminders can be disabled again."
     )),
     FeatureGuideEntry("M-PESA and on-device assistance", listOf(
-        "Share or paste M-PESA messages for review before saving. Parsed transaction costs are logged as a separate expense when Log M-PESA fees is enabled and linked back in History. Community builds offer an opt-in new-message listener; background logging is a separate opt-in and saves only when one M-PESA account can be identified. SMS closing balances are compared with the expected account balance, and mismatches are reported without changing the balance. The Play build does not include SMS listening.",
+        "Share or paste M-PESA and Ziidi confirmations for review before saving. Ziidi investments and withdrawals become transfers between M-PESA and the account named ZiDi or Ziidi, with direction taken from the confirmation and the Ziidi closing balance checked against the account. Parsed M-PESA fees are logged separately when enabled. Community builds offer an opt-in new-message listener and separate background logging; ambiguous accounts or directions stay in review. Balance mismatches are shown without changing account balances. The Play build does not include SMS listening.",
         "Category suggestions use history, corrections, and on-device classification. Supported devices may offer optional Gemini Nano message suggestions and monthly reflections. Review suggestions before use."
     )),
     FeatureGuideEntry("Insights, reviews, and exports", listOf(
@@ -61,6 +61,7 @@ val featureGuideEntries = listOf(
     )),
     FeatureGuideEntry("Privacy, backup, and preferences", listOf(
         "Finance records are stored locally. JSON backup and restore are user initiated; keep backup and shared statement files private.",
+        "Settings > Share diagnostic log exports a local event trail grouped by app session and operation. It includes import decisions, balance checks, and errors; incoming message bodies are excluded, and structured import events hash transaction references and account IDs. Review the report before sharing.",
         "Hide or show the Home dashboard's total balance with the eye control. Your choice is remembered on this device.",
         "Community builds check GitHub Releases on launch and daily; Check for app updates in Settings starts a manual check. A newer compatible signed APK downloads in the background and notifies you when ready. Android asks you to allow this install source and confirm the update.",
         "Settings includes app lock, light/dark and AMOLED modes, haptic strength, privacy information, and What's New. System theme follows wallpaper colors on Android 12 and newer; explicit light or dark modes use MakeFlow's palette. The interactive tour covers every feature guide section and can open transaction entry for practice. Setup allows an optional name and skippable tour; motion respects reduced-motion preferences. Some features need permissions or supported device services."

@@ -119,6 +119,7 @@ import com.makemission.makeflow.data.repository.TransactionTemplateRepositoryImp
 import com.makemission.makeflow.domain.MpesaMessageParser
 import com.makemission.makeflow.domain.MpesaBalanceCheck
 import com.makemission.makeflow.domain.MpesaBalanceReconciler
+import com.makemission.makeflow.domain.MpesaZiidiTransferResolver
 import com.makemission.makeflow.ui.screens.AccountsScreen
 import com.makemission.makeflow.ui.screens.AddEditAccountBottomSheet
 import com.makemission.makeflow.ui.screens.AddEditRecurringTransactionBottomSheet
@@ -325,6 +326,7 @@ fun MainScreen(
     var mpesaInitialNote by remember { mutableStateOf("") }
     var mpesaInitialTimestamp by remember { mutableStateOf<Long?>(null) }
     var mpesaExternalReference by remember { mutableStateOf<String?>(null) }
+    var mpesaOperationId by remember { mutableStateOf<String?>(null) }
     var mpesaDuplicateMessage by remember { mutableStateOf<String?>(null) }
     var mpesaShareErrorMessage by remember { mutableStateOf<String?>(null) }
     var mpesaCreatedAccountMessage by remember { mutableStateOf<String?>(null) }
@@ -347,11 +349,27 @@ fun MainScreen(
     LaunchedEffect(mpesaImportRequestId.intValue) {
         val data = pendingMpesaImport ?: return@LaunchedEffect
         pendingMpesaImport = null
+        val operationId = data.operationId ?: AppLogger.newOperationId()
+        mpesaOperationId = operationId
+        AppLogger.event(
+            "MpesaImportReview",
+            "review_preparation_started",
+            operationId,
+            mapOf(
+                "source" to data.balanceSource,
+                "type" to data.type,
+                "amount" to data.amount,
+                "closing_balance" to data.balance,
+                "reference_hash" to AppLogger.hashIdentifier(data.code)
+            )
+        )
         mpesaAiAssisted = data.isAiAssisted
         if (data.code.isNotEmpty()) {
             val isDuplicate = repository.hasExternalReference(data.code)
             if (isDuplicate) {
-                mpesaDuplicateMessage = "This M-PESA transaction has already been logged"
+                mpesaDuplicateMessage = "This transaction has already been logged"
+                AppLogger.event("MpesaImportReview", "duplicate_detected", operationId, mapOf("reference_hash" to AppLogger.hashIdentifier(data.code)), "WARN")
+                mpesaOperationId = null
                 return@LaunchedEffect
             }
         }
@@ -359,37 +377,78 @@ fun MainScreen(
             repository.hasExternalReference("${data.code}-fee")
 
         val normalizedName = MpesaMessageParser.normalizeWhitespace(data.counterpartyName)
-        val isZiidi = normalizedName.equals("ZIIDI", ignoreCase = true)
+        val isZiidi = MpesaZiidiTransferResolver.isZiidiCounterparty(normalizedName)
 
-        val mpesaAccount = withContext(Dispatchers.IO) {
-            db.accountDao().getAllAccountsOnce().firstOrNull { a ->
-                a.name.contains("mpesa", ignoreCase = true)
-            }
+        val importAccounts = withContext(Dispatchers.IO) {
+            db.accountDao().getAllAccountsOnce()
+        }
+        val mpesaAccount = importAccounts.firstOrNull { account ->
+            account.name.contains("mpesa", ignoreCase = true)
         }
         val mpesaAccountId = mpesaAccount?.id
 
+        val existingZiidiAccount = importAccounts.filter { account ->
+            MpesaZiidiTransferResolver.isZiidiAccountName(account.name)
+        }.singleOrNull()
+        if (isZiidi && importAccounts.count { account ->
+                MpesaZiidiTransferResolver.isZiidiAccountName(account.name)
+            } > 1
+        ) {
+            mpesaShareErrorMessage = "More than one ZiDi account was found. Keep one account named ZiDi or Ziidi, then try the message again."
+            showAddTransaction = true
+            AppLogger.event("MpesaImportReview", "review_rejected", operationId, mapOf("reason" to "ziidi_account_ambiguous"), "WARN")
+            return@LaunchedEffect
+        }
+        if (isZiidi && mpesaAccountId.isNullOrBlank()) {
+            mpesaShareErrorMessage = "Add an M-PESA account before importing a ZiDi transfer."
+            showAddTransaction = true
+            AppLogger.event("MpesaImportReview", "review_rejected", operationId, mapOf("reason" to "mpesa_account_missing"), "WARN")
+            return@LaunchedEffect
+        }
+        val ziidiAccount = if (isZiidi && existingZiidiAccount == null) {
+            val created = com.makemission.makeflow.data.local.entity.AccountEntity(
+                id = java.util.UUID.randomUUID().toString(),
+                name = "ZiDi",
+                balance = 0.0,
+                initialBalance = 0.0,
+                colorHex = "#26A69A",
+                currencyCode = "KES"
+            )
+            withContext(Dispatchers.IO) { db.accountDao().insertAccount(created) }
+            mpesaCreatedAccountMessage = "Created 'ZiDi' account for M-PESA savings transfers"
+            created
+        } else {
+            existingZiidiAccount
+        }
         if (isZiidi) {
-            val ziidiAccountId = withContext(Dispatchers.IO) {
-                val existing = db.accountDao().getAllAccountsOnce()
-                    .firstOrNull { a -> a.name.equals("Ziidi", ignoreCase = true) }
-                if (existing != null) {
-                    existing.id
-                } else {
-                    val newId = java.util.UUID.randomUUID().toString()
-                    db.accountDao().insertAccount(
-                        com.makemission.makeflow.data.local.entity.AccountEntity(
-                            id = newId, name = "Ziidi", balance = 0.0,
-                            initialBalance = 0.0, colorHex = "#26A69A"
-                        )
-                    )
-                    mpesaCreatedAccountMessage = "Created 'Ziidi' account for M-PESA savings transfers"
-                    newId
-                }
+            val resolvedMpesaAccountId = mpesaAccountId ?: return@LaunchedEffect
+            val resolvedZiidiAccountId = ziidiAccount?.id ?: run {
+                mpesaShareErrorMessage = "The ZiDi account could not be prepared. Review the transfer manually."
+                showAddTransaction = true
+                AppLogger.event("MpesaImportReview", "review_rejected", operationId, mapOf("reason" to "ziidi_account_unavailable"), "WARN")
+                return@LaunchedEffect
             }
-            mpesaInitialTransferFromId = mpesaAccountId
-            mpesaInitialTransferToId = ziidiAccountId
+            val transferAccounts = MpesaZiidiTransferResolver.accounts(
+                type = data.type,
+                mpesaAccountId = resolvedMpesaAccountId,
+                ziidiAccountId = resolvedZiidiAccountId
+            )
+            if (transferAccounts == null) {
+                mpesaShareErrorMessage = "The message did not clearly show whether money was invested into ZiDi or withdrawn from ZiDi. Review it manually."
+                showAddTransaction = true
+                AppLogger.event("MpesaImportReview", "review_rejected", operationId, mapOf("reason" to "ziidi_direction_unresolved", "message_type" to data.type), "WARN")
+                return@LaunchedEffect
+            }
+            mpesaInitialTransferFromId = transferAccounts.fromAccountId
+            mpesaInitialTransferToId = transferAccounts.toAccountId
             mpesaInitialType = "TRANSFER"
         } else {
+            if (data.balanceSource == MpesaMessageParser.BalanceSource.ZIIDI) {
+                mpesaShareErrorMessage = "The ZiDi balance could not be connected to a ZiDi transfer. Review it manually."
+                showAddTransaction = true
+                AppLogger.event("MpesaImportReview", "review_rejected", operationId, mapOf("reason" to "ziidi_balance_without_counterparty"), "WARN")
+                return@LaunchedEffect
+            }
             val type = when (data.type) {
                 MpesaMessageParser.TransactionType.RECEIVED -> "INCOME"
                 MpesaMessageParser.TransactionType.SENT,
@@ -409,11 +468,16 @@ fun MainScreen(
             val normalizedDate = data.date.replace(Regex("""/(\d{2})$""")) { "/20${it.groupValues[1]}" }
             val fmt = java.text.SimpleDateFormat("d/M/yyyy h:mm a", java.util.Locale.getDefault())
             fmt.parse("$normalizedDate ${data.time}")?.time
-        } catch (_: Exception) { null }
+        } catch (_: Exception) { null } ?: data.timestampMillis ?: System.currentTimeMillis()
         mpesaExternalReference = data.code
         mpesaTransactionCost = data.transactionCost.takeUnless { isFeeDuplicate }
-        val accountBalanceBeforeMessage = mpesaAccount?.takeIf {
-            (it.currencyCode ?: currencyCode).equals("KES", ignoreCase = true)
+        val balanceAccount = when (data.balanceSource) {
+            MpesaMessageParser.BalanceSource.MPESA -> mpesaAccount
+            MpesaMessageParser.BalanceSource.ZIIDI -> ziidiAccount
+        }
+        val accountBalanceBeforeMessage = balanceAccount?.takeIf {
+            (it.currencyCode ?: if (data.balanceSource == MpesaMessageParser.BalanceSource.ZIIDI) "KES" else currencyCode)
+                .equals("KES", ignoreCase = true)
         }?.let { account ->
             mpesaInitialTimestamp?.let { timestamp ->
                 withContext(Dispatchers.IO) {
@@ -432,9 +496,29 @@ fun MainScreen(
                 type = data.type,
                 amount = data.amount,
                 transactionCost = data.transactionCost.takeIf { logMpesaCosts && !isFeeDuplicate },
-                statementBalance = data.balance
+                statementBalance = data.balance,
+                balanceSource = data.balanceSource
             )
         }
+        AppLogger.event(
+            "MpesaImportReview",
+            "review_form_prefilled",
+            operationId,
+            mapOf(
+                "direction" to when {
+                    !isZiidi -> "MPESA_ONLY"
+                    mpesaInitialTransferFromId == mpesaAccountId -> "MPESA_TO_ZIIDI"
+                    else -> "ZIIDI_TO_MPESA"
+                },
+                "from_account_hash" to AppLogger.hashIdentifier(mpesaInitialTransferFromId),
+                "to_account_hash" to AppLogger.hashIdentifier(mpesaInitialTransferToId),
+                "balance_source" to data.balanceSource,
+                "account_balance_before" to balanceAccount?.balance,
+                "balance_estimate_before" to accountBalanceBeforeMessage,
+                "statement_balance" to data.balance,
+                "balance_matches" to mpesaBalanceCheck?.matches
+            )
+        )
         showAddTransaction = true
     }
 
@@ -1141,6 +1225,9 @@ fun MainScreen(
                 .background(MaterialTheme.colorScheme.background)
         ) {
             val onDismissAction = {
+                mpesaOperationId?.let { operationId ->
+                    AppLogger.event("MpesaImportReview", "review_form_dismissed", operationId)
+                }
                 shortcutPendingType.value = null
                 editingTransaction = null
                 mpesaInitialAmount = ""
@@ -1148,6 +1235,7 @@ fun MainScreen(
                 mpesaInitialNote = ""
                 mpesaInitialTimestamp = null
                 mpesaExternalReference = null
+                mpesaOperationId = null
                 mpesaTransactionCost = null
                 mpesaBalanceCheck = null
                 mpesaAiAssisted = false
@@ -1170,41 +1258,83 @@ fun MainScreen(
                 onSave = { amount, type, categoryId, accountId, note, timestamp, fromAccountId, toAccountId, destinationAmount ->
                     val externalReference = mpesaExternalReference
                     val cost = mpesaTransactionCost
-                    withContext(Dispatchers.IO) {
-                        repository.insertTransaction(
-                            TransactionEntity(
-                                amount = amount,
-                                type = type,
-                                categoryId = categoryId,
-                                accountId = accountId,
-                                fromAccountId = fromAccountId,
-                                toAccountId = toAccountId,
-                                note = note,
-                                timestamp = timestamp,
-                                externalReference = externalReference,
-                                destinationAmount = destinationAmount
-                            )
-                        )
-                        if (externalReference != null && logMpesaCosts && cost != null && cost > 0) {
-                            val feeCategoryId = categories.find {
-                                it.name == "Transaction Fees" && it.parentCategoryId != null
-                            }?.id
+                    val operationId = mpesaOperationId ?: AppLogger.newOperationId()
+                    val source = if (externalReference != null) "message_import" else "manual_entry"
+                    AppLogger.event(
+                        "TransactionSave",
+                        "save_started",
+                        operationId,
+                        mapOf("source" to source, "type" to type, "amount" to amount, "reference_hash" to AppLogger.hashIdentifier(externalReference))
+                    )
+                    try {
+                        withContext(Dispatchers.IO) {
                             repository.insertTransaction(
                                 TransactionEntity(
-                                    amount = cost,
-                                    type = "EXPENSE",
-                                    categoryId = feeCategoryId,
+                                    amount = amount,
+                                    type = type,
+                                    categoryId = categoryId,
                                     accountId = accountId,
-                                    note = "M-PESA transaction cost for ${externalReference}",
+                                    fromAccountId = fromAccountId,
+                                    toAccountId = toAccountId,
+                                    note = note,
                                     timestamp = timestamp,
-                                    externalReference = "${externalReference}-fee"
+                                    externalReference = externalReference,
+                                    destinationAmount = destinationAmount
+                                )
+                            )
+                            if (externalReference != null && logMpesaCosts && cost != null && cost > 0) {
+                                val feeCategoryId = categories.find {
+                                    it.name == "Transaction Fees" && it.parentCategoryId != null
+                                }?.id
+                                repository.insertTransaction(
+                                    TransactionEntity(
+                                        amount = cost,
+                                        type = "EXPENSE",
+                                        categoryId = feeCategoryId,
+                                        accountId = accountId,
+                                        note = "M-PESA transaction cost for ${externalReference}",
+                                        timestamp = timestamp,
+                                        externalReference = "${externalReference}-fee"
+                                    )
+                                )
+                            }
+                            val accountBalance = db.accountDao().getAccountById(accountId)?.balance
+                            val fromBalance = fromAccountId?.let { db.accountDao().getAccountById(it)?.balance }
+                            val toBalance = toAccountId?.let { db.accountDao().getAccountById(it)?.balance }
+                            AppLogger.event(
+                                "TransactionSave",
+                                "save_completed",
+                                operationId,
+                                mapOf(
+                                    "source" to source,
+                                    "type" to type,
+                                    "amount" to amount,
+                                    "destination_amount" to destinationAmount,
+                                    "category_hash" to AppLogger.hashIdentifier(categoryId),
+                                    "account_hash" to AppLogger.hashIdentifier(accountId),
+                                    "from_account_hash" to AppLogger.hashIdentifier(fromAccountId),
+                                    "to_account_hash" to AppLogger.hashIdentifier(toAccountId),
+                                    "planned_from_hash" to AppLogger.hashIdentifier(mpesaInitialTransferFromId),
+                                    "planned_to_hash" to AppLogger.hashIdentifier(mpesaInitialTransferToId),
+                                    "reference_hash" to AppLogger.hashIdentifier(externalReference),
+                                    "account_balance_after" to accountBalance,
+                                    "from_balance_after" to fromBalance,
+                                    "to_balance_after" to toBalance,
+                                    "balance_check_matches" to mpesaBalanceCheck?.matches
                                 )
                             )
                         }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        AppLogger.error("TransactionSave", "Could not save the transaction", error)
+                        AppLogger.event("TransactionSave", "save_failed", operationId, mapOf("source" to source, "error_type" to error.javaClass.simpleName), "ERROR")
+                        throw error
                     }
                     userPrefDataStore.saveLastTransactionAccountId(accountId)
                     WidgetUpdateHelper.updateWidgets(context)
                     mpesaExternalReference = null
+                    mpesaOperationId = null
                     mpesaTransactionCost = null
                     mpesaBalanceCheck = null
                     mpesaAiAssisted = false

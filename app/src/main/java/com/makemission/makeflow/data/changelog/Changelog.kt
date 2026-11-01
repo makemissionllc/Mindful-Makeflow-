@@ -13,8 +13,10 @@ val CURRENT_CHANGELOG_VERSION = BuildConfig.VERSION_NAME
 val changelogEntries = listOf(
     ChangelogEntry(
         version = BuildConfig.VERSION_NAME,
-        date = "2026-10-30",
+        date = "2026-11-01",
         changes = listOf(
+            "Import Ziidi investments and withdrawals as transfers in the correct direction, using Ziidi closing balances for reconciliation",
+            "Correlate local diagnostic events by app session and operation, and share a report from Settings",
             "Optionally save confirmed M-PESA transactions in the background to a single M-PESA account",
             "Compare each SMS closing balance with the expected account balance and flag discrepancies without overwriting it",
             "Autosave unfinished full-screen transaction entries on this device and restore them when you return",
