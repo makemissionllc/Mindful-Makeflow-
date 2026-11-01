@@ -46,7 +46,9 @@ fun AppNavigationEngine(
     sharedText: String? = null,
     onSharedTextConsumed: () -> Unit = {},
     importedMpesaMessage: MpesaMessageParser.MpesaParsedMessage? = null,
-    onImportedMpesaMessageConsumed: () -> Unit = {}
+    onImportedMpesaMessageConsumed: () -> Unit = {},
+    transactionIdToCategorize: String? = null,
+    onTransactionToCategorizeConsumed: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -228,6 +230,8 @@ fun AppNavigationEngine(
                     notificationGate = notificationGate,
                     initialTransactionType = shortcutType,
                     sharedMpesaData = parsedMpesa,
+                    transactionIdToCategorize = transactionIdToCategorize,
+                    onTransactionToCategorizeConsumed = onTransactionToCategorizeConsumed,
                     shareParseError = shareParseError,
                     onShareParseErrorShown = { shareParseError = null }
                 )

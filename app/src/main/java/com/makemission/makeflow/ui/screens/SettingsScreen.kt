@@ -842,7 +842,7 @@ fun SettingsScreen(
             )
             Column(verticalArrangement = Arrangement.spacedBy(dimens.spacingMedium)) {
                 Text(
-                    text = "MakeFlow logs M-PESA activity to the single KES account whose name includes M-PESA. ZiDi investments and withdrawals become transfers between that account and the account named ZiDi (or Ziidi). Direction comes from the confirmed sent, received, invested, or withdrawn wording. If accounts or direction are ambiguous, it opens the review flow instead. Automatically logged entries start uncategorized.",
+                    text = "MakeFlow logs M-PESA activity to the single KES account whose name includes M-PESA. ZiDi investments and withdrawals become transfers between that account and the account named ZiDi (or Ziidi). Direction comes from the confirmed sent, received, invested, or withdrawn wording. If accounts or direction are ambiguous, it opens the review flow instead. Automatically logged entries start uncategorized; tap the saved notification to open that transaction and choose a category without creating a duplicate.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

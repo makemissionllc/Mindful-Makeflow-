@@ -19,6 +19,7 @@ import java.util.Locale
 
 object MpesaAutoImportNotification {
     const val ACTION_REVIEW = "com.makemission.makeflow.action.REVIEW_MPESA_IMPORT"
+    const val ACTION_CATEGORIZE_SAVED = "com.makemission.makeflow.action.CATEGORIZE_SAVED_MPESA_IMPORT"
 
     private const val EXTRA_CODE = "mpesa_import_code"
     private const val EXTRA_TYPE = "mpesa_import_type"
@@ -33,6 +34,7 @@ object MpesaAutoImportNotification {
     private const val EXTRA_BALANCE_SOURCE = "mpesa_import_balance_source"
     private const val EXTRA_TIMESTAMP = "mpesa_import_timestamp"
     private const val EXTRA_OPERATION_ID = "mpesa_import_operation_id"
+    private const val EXTRA_TRANSACTION_ID = "mpesa_saved_transaction_id"
 
     fun hasNotificationAccess(context: Context): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(
@@ -92,15 +94,14 @@ object MpesaAutoImportNotification {
     fun showLogged(
         context: Context,
         message: MpesaMessageParser.MpesaParsedMessage,
+        transactionId: String,
         balanceCheck: MpesaBalanceCheck?,
         anomalyDetected: Boolean
     ) {
         if (!hasNotificationAccess(context)) return
 
         NotificationChannels.createChannels(context)
-        val openIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
+        val openIntent = createCategorizeSavedIntent(context, transactionId)
         val pendingIntent = PendingIntent.getActivity(
             context,
             message.code.hashCode() xor 0x4D504553,
@@ -114,7 +115,11 @@ object MpesaAutoImportNotification {
                 "Saved. SMS balance is Ksh ${formatAmount(kotlin.math.abs(balanceCheck.difference))} $direction the app's expected balance. Review your $balanceAccount account."
             }
             anomalyDetected -> "Saved. Review the unusually large amount in MakeFlow."
-            else -> "Saved to your ${destinationAccountLabel(message)} account. Tap to open MakeFlow."
+            else -> if (isZiidiTransfer(message)) {
+                "Saved to your ${destinationAccountLabel(message)} account. Tap to review the transfer in MakeFlow."
+            } else {
+                "Saved to your ${destinationAccountLabel(message)} account. Tap to categorize it in MakeFlow."
+            }
         }
         val notification = NotificationCompat.Builder(context, NotificationChannels.CHANNEL_MPESA_IMPORTS)
             .setSmallIcon(R.drawable.ic_notification)
@@ -128,6 +133,13 @@ object MpesaAutoImportNotification {
             .build()
         NotificationManagerCompat.from(context).notify(message.code.hashCode(), notification)
     }
+
+    fun createCategorizeSavedIntent(context: Context, transactionId: String): Intent =
+        Intent(context, MainActivity::class.java).apply {
+            action = ACTION_CATEGORIZE_SAVED
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(EXTRA_TRANSACTION_ID, transactionId)
+        }
 
     fun readFromIntent(intent: Intent?): MpesaMessageParser.MpesaParsedMessage? {
         if (intent?.action != ACTION_REVIEW) return null
@@ -174,6 +186,12 @@ object MpesaAutoImportNotification {
             timestampMillis = timestampMillis,
             operationId = intent.getStringExtra(EXTRA_OPERATION_ID)
         )
+    }
+
+    fun readSavedTransactionId(intent: Intent?): String? {
+        if (intent?.action != ACTION_CATEGORIZE_SAVED) return null
+        return intent.getStringExtra(EXTRA_TRANSACTION_ID)
+            ?.takeIf { it.matches(Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")) }
     }
 
     private fun isZiidiTransfer(message: MpesaMessageParser.MpesaParsedMessage): Boolean =

@@ -183,6 +183,8 @@ fun MainScreen(
     notificationGate: NotificationGate? = null,
     initialTransactionType: String? = null,
     sharedMpesaData: MpesaMessageParser.MpesaParsedMessage? = null,
+    transactionIdToCategorize: String? = null,
+    onTransactionToCategorizeConsumed: () -> Unit = {},
     shareParseError: String? = null,
     onShareParseErrorShown: () -> Unit = {}
 ) {
@@ -318,6 +320,40 @@ fun MainScreen(
             shortcutPendingType.value = initialTransactionType
             showAddTransaction = true
         }
+    }
+
+    LaunchedEffect(transactionIdToCategorize) {
+        val transactionId = transactionIdToCategorize ?: return@LaunchedEffect
+        val operationId = AppLogger.newOperationId()
+        val transaction = withContext(Dispatchers.IO) {
+            db.transactionDao().getTransactionById(transactionId)
+        }
+        if (transaction == null) {
+            AppLogger.event(
+                "TransactionCategorization",
+                "saved_transaction_not_found",
+                operationId,
+                mapOf("transaction_id_hash" to AppLogger.hashIdentifier(transactionId)),
+                "WARN"
+            )
+            Toast.makeText(context, "This saved transaction could not be opened", Toast.LENGTH_LONG).show()
+        } else {
+            AppLogger.event(
+                "TransactionCategorization",
+                "saved_transaction_edit_opened",
+                operationId,
+                mapOf(
+                    "transaction_id_hash" to AppLogger.hashIdentifier(transaction.id),
+                    "type" to transaction.type,
+                    "amount" to transaction.amount,
+                    "has_category" to (transaction.categoryId != null)
+                )
+            )
+            shortcutPendingType.value = null
+            editingTransaction = transaction
+            showAddTransaction = true
+        }
+        onTransactionToCategorizeConsumed()
     }
 
     // M-PESA import review handling
@@ -1434,12 +1470,54 @@ fun MainScreen(
                 },
                 editTransaction = editingTransaction,
                 onUpdate = { entity ->
-                    scope.launch(Dispatchers.IO) {
-                        repository.updateTransaction(entity)
-                        userPrefDataStore.saveLastTransactionAccountId(entity.accountId)
-                        WidgetUpdateHelper.updateWidgets(context)
-                        editingTransaction = null
-                        showAddTransaction = false
+                    val operationId = AppLogger.newOperationId()
+                    AppLogger.event(
+                        "TransactionEdit",
+                        "edit_update_started",
+                        operationId,
+                        mapOf(
+                            "transaction_id_hash" to AppLogger.hashIdentifier(entity.id),
+                            "reference_hash" to AppLogger.hashIdentifier(entity.externalReference),
+                            "type" to entity.type,
+                            "amount" to entity.amount,
+                            "category_hash" to AppLogger.hashIdentifier(entity.categoryId)
+                        )
+                    )
+                    scope.launch {
+                        try {
+                            withContext(Dispatchers.IO) {
+                                repository.updateTransaction(entity)
+                                userPrefDataStore.saveLastTransactionAccountId(entity.accountId)
+                                WidgetUpdateHelper.updateWidgets(context)
+                            }
+                            AppLogger.event(
+                                "TransactionEdit",
+                                "edit_update_completed",
+                                operationId,
+                                mapOf(
+                                    "transaction_id_hash" to AppLogger.hashIdentifier(entity.id),
+                                    "reference_hash" to AppLogger.hashIdentifier(entity.externalReference),
+                                    "category_hash" to AppLogger.hashIdentifier(entity.categoryId)
+                                )
+                            )
+                            editingTransaction = null
+                            showAddTransaction = false
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (error: Exception) {
+                            AppLogger.error("TransactionEdit", "Could not update the transaction", error)
+                            AppLogger.event(
+                                "TransactionEdit",
+                                "edit_update_failed",
+                                operationId,
+                                mapOf(
+                                    "transaction_id_hash" to AppLogger.hashIdentifier(entity.id),
+                                    "error_type" to error.javaClass.simpleName
+                                ),
+                                "ERROR"
+                            )
+                            Toast.makeText(context, "Could not update this transaction", Toast.LENGTH_LONG).show()
+                        }
                     }
                 },
                 mpesaTransactionCost = mpesaTransactionCost,

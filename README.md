@@ -65,6 +65,8 @@ minify + resource shrinking (`app/proguard-rules.pro`).
   direction between M-PESA and an account named `ZiDi` or `Ziidi`. An additional opt-in can save new
   messages in the background when accounts are unambiguous; M-PESA or Ziidi closing balances are
   compared with the expected account balance and discrepancies are surfaced without overwriting it.
+  Tap the saved notification to reopen the logged transaction and assign a category without
+  creating a duplicate.
   On supported devices, Gemini Nano may
   offer an on-device fallback for shared messages. Suggestions must be
   reviewed before use. See `GOOGLE_PLAY_SMS_PERMISSION_REVIEW.md` for the release decision.

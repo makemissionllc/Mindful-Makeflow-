@@ -41,6 +41,7 @@ class MainActivity : FragmentActivity() {
         private set
 
     private var pendingMpesaReview by mutableStateOf<MpesaMessageParser.MpesaParsedMessage?>(null)
+    private var pendingSavedTransactionId by mutableStateOf<String?>(null)
     private var pendingUpdateFileName: String? = null
     private val installPermissionSettingsLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -86,7 +87,9 @@ class MainActivity : FragmentActivity() {
                         sharedText = sharedText,
                         onSharedTextConsumed = { sharedText = null },
                         importedMpesaMessage = pendingMpesaReview,
-                        onImportedMpesaMessageConsumed = { pendingMpesaReview = null }
+                        onImportedMpesaMessageConsumed = { pendingMpesaReview = null },
+                        transactionIdToCategorize = pendingSavedTransactionId,
+                        onTransactionToCategorizeConsumed = { pendingSavedTransactionId = null }
                     )
                 }
             }
@@ -101,7 +104,12 @@ class MainActivity : FragmentActivity() {
 
     private fun handleShareIntent(intent: Intent?) {
         when {
+            intent?.action == MpesaAutoImportNotification.ACTION_CATEGORIZE_SAVED -> {
+                pendingMpesaReview = null
+                pendingSavedTransactionId = MpesaAutoImportNotification.readSavedTransactionId(intent)
+            }
             intent?.action == MpesaAutoImportNotification.ACTION_REVIEW -> {
+                pendingSavedTransactionId = null
                 pendingMpesaReview = MpesaAutoImportNotification.readFromIntent(intent)
             }
             intent?.action == ACTION_INSTALL_APP_UPDATE -> {

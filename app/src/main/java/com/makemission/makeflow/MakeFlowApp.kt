@@ -23,7 +23,7 @@ class MakeFlowApp : Application() {
             details = mapOf(
                 "version" to BuildConfig.VERSION_NAME,
                 "build_type" to BuildConfig.BUILD_TYPE,
-                "flavor" to BuildConfig.FLAVOR
+                "application_id" to BuildConfig.APPLICATION_ID
             )
         )
     }

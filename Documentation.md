@@ -6,6 +6,28 @@ plus verification status.
 
 Conventions: `path:line` for code refs, commit hashes where available.
 
+## 2026-11-01 — Open logged imports for direct categorization
+
+- **Notification flow:** background-saved M-PESA and ZiDi notifications now carry the
+  saved transaction ID and open that existing record in the transaction editor. The user
+  can assign a category from the notification without making a duplicate; transfers open
+  for review. Edit start, category update, completion, and failure events are correlated
+  in the diagnostic session.
+- **Regression coverage:** added an instrumented flow with synthetic data: open an
+  intent-contract test that verifies the notification carries a valid saved transaction ID
+  and rejects malformed IDs or unrelated actions. A synthetic editor-flow test passed once,
+  but reruns lost the Compose hierarchy, so it was removed rather than keep flaky coverage;
+  the full notification-to-category UI path still needs a stable repeatable UI test.
+- **Build issue found and fixed:** compilation exposed an unavailable `BuildConfig.FLAVOR`
+  field in this Community project; startup diagnostics now record its generated application
+  ID instead.
+- **Verification:** unit tests, debug Kotlin compilation, and Android-test compilation
+  passed. All 108 connected instrumented tests passed on the OPPO CPH2745 Android 17 phone
+  using an isolated `.codextest` package, including the notification intent-contract test.
+  The synthetic database fixture was cleared and the temporary package was removed by the
+  test runner; no real SMS was injected or transaction saved. The stable suite does not yet
+  exercise the full notification-to-category UI path. `git diff --check` passed.
+
 ## 2026-11-01 — Resolve ZiDi transfer direction and add diagnostic sessions
 
 - **ZiDi imports:** parse ZiDi investment and withdrawal confirmations alongside M-PESA

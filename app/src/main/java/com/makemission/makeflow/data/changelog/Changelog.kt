@@ -16,6 +16,7 @@ val changelogEntries = listOf(
         date = "2026-11-01",
         changes = listOf(
             "Import Ziidi investments and withdrawals as transfers in the correct direction, using Ziidi closing balances for reconciliation",
+            "Open an automatically logged transaction from its notification to assign a category without creating a duplicate",
             "Correlate local diagnostic events by app session and operation, and share a report from Settings",
             "Optionally save confirmed M-PESA transactions in the background to a single M-PESA account",
             "Compare each SMS closing balance with the expected account balance and flag discrepancies without overwriting it",

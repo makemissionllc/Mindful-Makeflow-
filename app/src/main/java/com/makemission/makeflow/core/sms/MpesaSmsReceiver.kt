@@ -105,6 +105,7 @@ class MpesaSmsReceiver : BroadcastReceiver() {
                             MpesaAutoImportNotification.showLogged(
                                 appContext,
                                 parsed,
+                                result.transactionId,
                                 result.balanceCheck,
                                 result.anomalyDetected
                             )

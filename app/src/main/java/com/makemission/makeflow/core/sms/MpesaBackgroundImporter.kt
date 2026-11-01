@@ -25,7 +25,8 @@ object MpesaBackgroundImporter {
     sealed interface Result {
         data class Saved(
             val balanceCheck: MpesaBalanceCheck?,
-            val anomalyDetected: Boolean
+            val anomalyDetected: Boolean,
+            val transactionId: String
         ) : Result
         data object ReviewRequired : Result
         data object AlreadyLogged : Result
@@ -236,7 +237,8 @@ object MpesaBackgroundImporter {
                     balanceSource = message.balanceSource
                 )
             },
-            anomalyDetected = anomalyDetected
+            anomalyDetected = anomalyDetected,
+            transactionId = transaction.id
         ).also { result ->
             val check = result.balanceCheck
             AppLogger.event(
